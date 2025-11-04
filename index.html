@@ -1186,29 +1186,30 @@ const vsoMedio = estoqueVGV > 0 ? (realVGV / estoqueVGV * 100) : 0;
                         <div class="metric-bar-fill" style="width: ${Math.min(atingimentoMeta, 100)}%"></div>
                     </div>
                 </div>
-                <div class="metric-card">
-                    <div class="metric-label">Estoque VGV</div>
-                    <div class="metric-value currency">R$ ${formatMoney(estoqueVGV)}</div>
-                    <div class="metric-subtitle">Valor em estoque</div>
-                </div>
-                <div class="metric-card vso-ano">
-                    <div class="metric-label">VSO Geral</div>
-                    <div class="metric-value large">${vsoMedio.toFixed(1)}%</div>
-                    <div class="metric-subtitle">
-                        Vendas: R$ ${formatMoneyShort(realVGV)}<br>
-                        Estoque: R$ ${formatMoneyShort(estoqueVGV)}<br>
-                        <small style="opacity: 0.7;">
-                            ${selectedMeses.length === 0 
-                                ? 'Estoque: Último mês disponível' 
-                                : selectedMeses.length === 1
-                                ? 'Estoque: Do próprio mês'
-                                : 'Estoque: Mês subsequente ao período'}
-                        </small>
-                    </div>
-                    <div class="metric-bar">
-                        <div class="metric-bar-fill" style="width: ${Math.min(vsoMedio, 100)}%"></div>
-                    </div>
-                </div>
+<div class="metric-card">
+	<div class="metric-label">ESTOQUE VGV</div>
+	<div class="metric-value large currency">R$ ${formatMoney(estoqueVGV)}</div>
+	<div class="metric-subtitle">Valor Geral de Vendas em Estoque</div>
+	</div>
+
+<div class="metric-card vso-ano">
+	                    <div class="metric-label">VSO GERAL</div>
+	                    <div class="metric-value large">${(typeof getVsoGeralForFilters==='function' ? getVsoGeralForFilters(selectedAno, selectedMeses, extraFilterFn) * 100 : vsoMedio).toFixed(1)}%</div>
+	                    <div class="metric-subtitle">
+	                        Vendas: R$ ${formatMoneyShort(realVGV)}<br>
+	                        Estoque: R$ ${formatMoneyShort(estoqueVGV)}<br>
+	                        <small style="opacity: 0.7;">
+	                            ${selectedMeses.length === 0 
+	                                ? 'Estoque: Último mês disponível' 
+	                                : selectedMeses.length === 1
+	                                ? 'Estoque: Do próprio mês'
+	                                : 'Estoque: Mês subsequente ao período'}
+	                        </small>
+	                    </div>
+	                    <div class="metric-bar">
+	                        <div class="metric-bar-fill" style="width: ${Math.min((typeof getVsoGeralForFilters==='function' ? getVsoGeralForFilters(selectedAno, selectedMeses, extraFilterFn) * 100 : vsoMedio), 100)}%"></div>
+	                    </div>
+	                </div>
             `;
         }
 
@@ -2128,6 +2129,23 @@ const vsoMedio = estoqueVGV > 0 ? (realVGV / estoqueVGV * 100) : 0;
     setCard(/META VGV/i, metaSum);
     setCard(/REAL VGV/i, realSum);
     setCard(/ESTOQUE VGV/i, estoqueSum);
+
+    // Novo card VSO GERAL
+    if (typeof window.getVsoGeralForFilters === 'function'){
+      const vsoGeral = window.getVsoGeralForFilters(sel.Ano && sel.Ano.length===1 ? sel.Ano[0] : null, sel['Mês'], null);
+      setCard(/VSO GERAL/i, vsoGeral * 100.0); // Multiplica por 100 para porcentagem
+      // Ajuste para formatar como porcentagem
+      const card = cards.find(c => {
+        const lab = c.querySelector('.metric-label, .label, h3, h4, .card-title');
+        return lab && /VSO GERAL/i.test((lab.textContent||'').toUpperCase());
+      });
+      if (card){
+        const valEl = card.querySelector('.metric-value, .value, .card-value, strong, b, .number');
+        if (valEl){
+          valEl.textContent = (vsoGeral * 100.0).toFixed(2) + '%';
+        }
+      }
+    }
   }
 
   function schedule(){ clearTimeout(window.__headerFixTmr); window.__headerFixTmr = setTimeout(updateHeaderCards, 100); }
@@ -2537,6 +2555,52 @@ const vsoMedio = estoqueVGV > 0 ? (realVGV / estoqueVGV * 100) : 0;
   function ordMeses(arr){
     return arr.slice().sort((a,b)=>MESES.indexOf(a)-MESES.indexOf(b));
   }
+  window.getVsoGeralForFilters = function(selectedAno, selectedMeses, extraFilterFn){
+    const base = Array.isArray(window.allData) ? window.allData : [];
+    const data = extraFilterFn ? base.filter(extraFilterFn) : base;
+    
+    const realVGV = data.reduce((s,r)=> s + (+r[" Real VGV "]||0), 0);
+    
+    if (selectedMeses && selectedMeses.length>=1){
+      const ord = ordMeses(selectedMeses);
+      
+      if (ord.length === 1) {
+        // 1 mês: Venda / Estoque DESSE mês
+        const mes = ord[0];
+        const venda = data.filter(r => (!selectedAno || String(r["Ano"])===String(selectedAno)) && r["Mês"]===mes)
+                          .reduce((s,r)=> s + (+r[" Real VGV "]||0), 0);
+        const estoque = data.filter(r => (!selectedAno || String(r["Ano"])===String(selectedAno)) && r["Mês"]===mes)
+                           .reduce((s,r)=> s + (+r["Estoque VGV"]||0), 0);
+        return estoque > 0 ? (venda / estoque) : 0;
+      } else {
+        // Múltiplos meses: SOMA das Vendas / SOMA dos Estoques
+        const vendas = data.filter(r => (!selectedAno || String(r["Ano"])===String(selectedAno)) && ord.includes(r["Mês"]))
+                           .reduce((s,r)=> s + (+r[" Real VGV "]||0), 0);
+        const estoques = data.filter(r => (!selectedAno || String(r["Ano"])===String(selectedAno)) && ord.includes(r["Mês"]))
+                             .reduce((s,r)=> s + (+r["Estoque VGV"]||0), 0);
+        return estoques > 0 ? (vendas / estoques) : 0;
+      }
+    }
+    
+    // Sem filtro de mês: SOMA das Vendas / Estoque do Último Mês com Dados
+    let ultimoEstoque = 0;
+    if (selectedAno){
+      const {soma} = ultimoMesComInfoSum(data, selectedAno, "Estoque VGV");
+      ultimoEstoque = soma;
+    } else {
+      const anosComDados = Array.from(new Set(data.map(r=>r["Ano"]).filter(x=>x!=null))).sort((a,b)=>b-a);
+      for (const ano of anosComDados) {
+        const {soma} = ultimoMesComInfoSum(data, ano, "Estoque VGV");
+        if (soma > 0) {
+          ultimoEstoque = soma;
+          break;
+        }
+      }
+    }
+    
+    return ultimoEstoque > 0 ? (realVGV / ultimoEstoque) : 0;
+  };
+
   window.getEstoqueQtdForFilters = function(selectedAno, selectedMeses, extraFilterFn){
     const base = Array.isArray(window.allData) ? window.allData : [];
     const data = extraFilterFn ? base.filter(extraFilterFn) : base;
