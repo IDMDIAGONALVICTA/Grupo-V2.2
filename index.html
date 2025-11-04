@@ -727,138 +727,98 @@ var allData = [];
 })();
 
 
-(function(){ // estoque helpers
-  function mesIndexBr(nome){
-    const mapa = {"Janeiro":1,"Fevereiro":2,"Março":3,"Abril":4,"Maio":5,"Junho":6,"Julho":7,"Agosto":8,"Setembro":9,"Outubro":10,"Novembro":11,"Dezembro":12};
-
-window.getEstoqueQtdForFilters = function(selectedAno, selectedMeses, extraFilterFn){
-  const base = (typeof allData!=="undefined" && Array.isArray(allData)) ? allData : [];
-  const data = extraFilterFn ? base.filter(extraFilterFn) : base;
-  function estoqueAnoQtd(data, ano){
-    // Quando não há filtro de mês, pegar o último mês do ano com dados
-    const meses = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", 
-                   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-    
-    // Procura do último para o primeiro mês
-    for (let i = meses.length - 1; i >= 0; i--) {
-      const mesNome = meses[i];
-      const soma = data.filter(r => r["Ano"]==ano && r["Mês"]===mesNome).reduce((s,r)=>s+(+r["Estoque Qtd"]||0),0);
-      if (soma > 0) {
-        return soma;
-      }
-    }
-    return 0;
-  }
-  function estoqueMesesQtd(data, ano, mesesSelecionados){
-    const mesesOrdenados = mesesSelecionados.slice().sort((a,b)=>(window.__estoqueRules.mesIndexBr(a)||99)-(window.__estoqueRules.mesIndexBr(b)||99));
-    
-    if (mesesOrdenados.length === 1){
-      // 1 mês: pegar estoque DESSE mês
-      const mes = mesesOrdenados[0];
-      return data.filter(r => r["Ano"]==ano && r["Mês"]===mes).reduce((s,r)=>s+(+r["Estoque Qtd"]||0),0);
-    } else {
-      // Múltiplos meses: pegar estoque do mês SUBSEQUENTE ao último
-      const ultimoMes = mesesOrdenados[mesesOrdenados.length - 1];
-      const idxUltimo = window.__estoqueRules.mesIndexBr(ultimoMes);
-      const idxSubsequente = idxUltimo ? idxUltimo + 1 : null;
-      const mapaInv = {1:"Janeiro",2:"Fevereiro",3:"Março",4:"Abril",5:"Maio",6:"Junho",7:"Julho",8:"Agosto",9:"Setembro",10:"Outubro",11:"Novembro",12:"Dezembro"};
-      
-      if (idxSubsequente && idxSubsequente <= 12) {
-        // Mês subsequente existe no mesmo ano
-        const mesSubsequente = mapaInv[idxSubsequente];
-        return data.filter(r => r["Ano"]==ano && r["Mês"]===mesSubsequente).reduce((s,r)=>s+(+r["Estoque Qtd"]||0),0);
-      } else {
-        // Mês subsequente seria janeiro do ano seguinte
-        return data.filter(r => r["Ano"]==(ano+1) && r["Mês"]===mapaInv[1]).reduce((s,r)=>s+(+r["Estoque Qtd"]||0),0);
-      }
-    }
-  }
-
-  if (selectedAno){
-    if (selectedMeses && selectedMeses.length>=1){
-      return estoqueMesesQtd(data, selectedAno, selectedMeses);
-    } else {
-      return estoqueAnoQtd(data, selectedAno);
-    }
-  } else {
-    const anos = Array.from(new Set(data.map(r=>r["Ano"]).filter(x=>x!=null)));
-    if (selectedMeses && selectedMeses.length>=1){
-      return anos.reduce((s,ano)=>s + estoqueMesesQtd(data, ano, selectedMeses), 0);
-    }
-    return anos.reduce((s,ano)=>s + estoqueAnoQtd(data, ano), 0);
-  }
-};
-
-    return mapa[nome] || null;
-  }
-  function estoqueAno(data, ano){
-    // Quando não há filtro de mês, pegar o último mês do ano com dados
-    const meses = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", 
-                   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-    
-    // Procura do último para o primeiro mês
-    for (let i = meses.length - 1; i >= 0; i--) {
-      const mesNome = meses[i];
-      const soma = data.filter(r => r["Ano"]==ano && r["Mês"]===mesNome).reduce((s,r)=>s+(+r["Estoque VGV"]||0),0);
-      if (soma > 0) {
-        return soma;
-      }
-    }
-    return 0;
-  }
-  function estoqueMeses(data, ano, mesesSelecionados){
-    const mesesOrdenados = mesesSelecionados.slice().sort((a,b)=>(mesIndexBr(a)||99)-(mesIndexBr(b)||99));
-    
-    if (mesesOrdenados.length === 1){
-      // 1 mês: pegar estoque DESSE mês
-      const mes = mesesOrdenados[0];
-      return data.filter(r => r["Ano"]==ano && r["Mês"]===mes).reduce((s,r)=>s+(+r["Estoque VGV"]||0),0);
-    } else {
-      // Múltiplos meses: pegar estoque do mês SUBSEQUENTE ao último
-      const ultimoMes = mesesOrdenados[mesesOrdenados.length - 1];
-      const idxUltimo = mesIndexBr(ultimoMes);
-      const idxSubsequente = idxUltimo ? idxUltimo + 1 : null;
-      const mapaInv = {1:"Janeiro",2:"Fevereiro",3:"Março",4:"Abril",5:"Maio",6:"Junho",7:"Julho",8:"Agosto",9:"Setembro",10:"Outubro",11:"Novembro",12:"Dezembro"};
-      
-      if (idxSubsequente && idxSubsequente <= 12) {
-        // Mês subsequente existe no mesmo ano
-        const mesSubsequente = mapaInv[idxSubsequente];
-        return data.filter(r => r["Ano"]==ano && r["Mês"]===mesSubsequente).reduce((s,r)=>s+(+r["Estoque VGV"]||0),0);
-      } else {
-        // Mês subsequente seria janeiro do ano seguinte
-        return data.filter(r => r["Ano"]==(ano+1) && r["Mês"]===mapaInv[1]).reduce((s,r)=>s+(+r["Estoque VGV"]||0),0);
-      }
-    }
-  }
-  window.__estoqueRules = { estoqueAno, estoqueMeses, mesIndexBr };
-})();
-
-(function(){
-  window.getEstoqueVGVForFilters = function(selectedAno, selectedMeses, extraFilterFn){
-    const base = (typeof allData!=="undefined" && Array.isArray(allData)) ? allData : [];
-    const data = extraFilterFn ? base.filter(extraFilterFn) : base;
-    if (selectedAno){
-      if (selectedMeses && selectedMeses.length>=1){
-        return window.__estoqueRules.estoqueMeses(data, selectedAno, selectedMeses);
-      } else {
-        return window.__estoqueRules.estoqueAno(data, selectedAno);
-      }
-    } else {
-      const anos = Array.from(new Set(data.map(r=>r["Ano"]).filter(x=>x!=null)));
-      if (selectedMeses && selectedMeses.length>=1){
-        return anos.reduce((s,ano)=>s + window.__estoqueRules.estoqueMeses(data, ano, selectedMeses), 0);
-      }
-      return anos.reduce((s,ano)=>s + window.__estoqueRules.estoqueAno(data, ano), 0);
-    }
-  };
-})();
-
 // Exibir contador
 document.addEventListener('DOMContentLoaded', function(){
   var b = document.getElementById('badgeLoaded');
   b.textContent = allData && allData.length ? (allData.length + ' registros carregados') : '0 registros';
   setTimeout(()=> b.remove(), 4000);
 });
+
+<script>
+// === HELPERS DE ESTOQUE (corrigidos) ===
+(function(){
+  const MAPA_MES = {"Janeiro":1,"Fevereiro":2,"Março":3,"Abril":4,"Maio":5,"Junho":6,"Julho":7,"Agosto":8,"Setembro":9,"Outubro":10,"Novembro":11,"Dezembro":12};
+  const MAPA_INV = {1:"Janeiro",2:"Fevereiro",3:"Março",4:"Abril",5:"Maio",6:"Junho",7:"Julho",8:"Agosto",9:"Setembro",10:"Outubro",11:"Novembro",12:"Dezembro"};
+
+  function mesIndexBr(nome){
+    return MAPA_MES[nome] || null;
+  }
+
+  function estoqueUltimoMesDoAno(data, ano, campo){
+    // sem filtro de mês → pegar o último mês com dado (>0) dentro do ano
+    const ordem = [12,11,10,9,8,7,6,5,4,3,2,1]; // do fim para o começo
+    for (const m of ordem){
+      const mesNome = MAPA_INV[m];
+      const soma = data
+        .filter(r => r["Ano"]==ano && r["Mês"]===mesNome)
+        .reduce((s,r)=> s + (+r[campo] || 0), 0);
+      if (soma > 0) return soma;
+    }
+    // caso não encontre >0, considera 0
+    return 0;
+  }
+
+  function estoquePorMeses(data, ano, mesesSelecionados, campo){
+    // 1 mês → estoque do próprio mês
+    // >1 meses → estoque do mês SUBSEQUENTE ao último mês selecionado
+    const mesesOrdenados = mesesSelecionados.slice().sort((a,b)=> (mesIndexBr(a)||99) - (mesIndexBr(b)||99));
+
+    if (mesesOrdenados.length === 1){
+      const mes = mesesOrdenados[0];
+      return data
+        .filter(r => r["Ano"]==ano && r["Mês"]===mes)
+        .reduce((s,r)=> s + (+r[campo] || 0), 0);
+    } else {
+      const ultimoMes = mesesOrdenados[mesesOrdenados.length - 1];
+      const idxUltimo = mesIndexBr(ultimoMes);
+      if (!idxUltimo) return 0;
+      const idxSub = idxUltimo + 1;
+      if (idxSub <= 12){
+        const mesSub = MAPA_INV[idxSub];
+        return data
+          .filter(r => r["Ano"]==ano && r["Mês"]===mesSub)
+          .reduce((s,r)=> s + (+r[campo] || 0), 0);
+      } else {
+        // Janeiro do ano seguinte
+        return data
+          .filter(r => r["Ano"]==(ano+1) && r["Mês"]==="Janeiro")
+          .reduce((s,r)=> s + (+r[campo] || 0), 0);
+      }
+    }
+  }
+
+  function getEstoqueGeneric(selectedAno, selectedMeses, extraFilterFn, campo){
+    const base = (typeof allData!=="undefined" && Array.isArray(allData)) ? allData : [];
+    const data = extraFilterFn ? base.filter(extraFilterFn) : base;
+
+    if (selectedAno){
+      if (selectedMeses && selectedMeses.length>=1){
+        return estoquePorMeses(data, selectedAno, selectedMeses, campo);
+      } else {
+        return estoqueUltimoMesDoAno(data, selectedAno, campo);
+      }
+    } else {
+      // sem filtro de ano → somar por ano respeitando as mesmas regras
+      const anos = Array.from(new Set(data.map(r=>r["Ano"]).filter(x=>x!=null)));
+      if (selectedMeses && selectedMeses.length>=1){
+        return anos.reduce((s,ano)=> s + estoquePorMeses(data, ano, selectedMeses, campo), 0);
+      }
+      return anos.reduce((s,ano)=> s + estoqueUltimoMesDoAno(data, ano, campo), 0);
+    }
+  }
+
+  // === Funções públicas que o dashboard usa ===
+  window.getEstoqueVGVForFilters = function(selectedAno, selectedMeses, extraFilterFn){
+    return getEstoqueGeneric(selectedAno, selectedMeses, extraFilterFn, "Estoque VGV");
+  };
+  window.getEstoqueQtdForFilters = function(selectedAno, selectedMeses, extraFilterFn){
+    return getEstoqueGeneric(selectedAno, selectedMeses, extraFilterFn, "Estoque Qtd");
+  };
+
+  // expõe utilitário (opcional)
+  window.__estoqueRules = { mesIndexBr };
+})();
+</script>
 </script>
 <div class="container">
 <div class="header">
@@ -2563,9 +2523,20 @@ const vsoMedio = estoqueVGV > 0 ? (realVGV / estoqueVGV * 100) : 0;
                      .reduce((s,r)=> s + (+r["Estoque Qtd"]||0), 0);
         } else {
           // Mês subsequente seria janeiro do ano seguinte
-          const anoSeguinte = selectedAno ? selectedAno + 1 : null;
-          return data.filter(r => (!anoSeguinte || String(r["Ano"])===String(anoSeguinte)) && r["Mês"]==="Janeiro")
-                     .reduce((s,r)=> s + (+r["Estoque Qtd"]||0), 0);
+          if (selectedAno) {
+            const anoSeguinte = selectedAno + 1;
+            return data.filter(r => String(r["Ano"])===String(anoSeguinte) && r["Mês"]==="Janeiro")
+                       .reduce((s,r)=> s + (+r["Estoque Qtd"]||0), 0);
+          } else {
+            // Sem ano filtrado: pegar o último estoque disponível (janeiro mais recente)
+            const anos = Array.from(new Set(data.map(r=>r["Ano"]).filter(x=>x!=null))).sort((a,b)=>b-a);
+            for (const ano of anos) {
+              const estoque = data.filter(r => String(r["Ano"])===String(ano) && r["Mês"]==="Janeiro")
+                                  .reduce((s,r)=> s + (+r["Estoque Qtd"]||0), 0);
+              if (estoque > 0) return estoque;
+            }
+            return 0;
+          }
         }
       }
     }
@@ -2606,9 +2577,20 @@ const vsoMedio = estoqueVGV > 0 ? (realVGV / estoqueVGV * 100) : 0;
                      .reduce((s,r)=> s + (+r["Estoque VGV"]||0), 0);
         } else {
           // Mês subsequente seria janeiro do ano seguinte
-          const anoSeguinte = selectedAno ? selectedAno + 1 : null;
-          return data.filter(r => (!anoSeguinte || String(r["Ano"])===String(anoSeguinte)) && r["Mês"]==="Janeiro")
-                     .reduce((s,r)=> s + (+r["Estoque VGV"]||0), 0);
+          if (selectedAno) {
+            const anoSeguinte = selectedAno + 1;
+            return data.filter(r => String(r["Ano"])===String(anoSeguinte) && r["Mês"]==="Janeiro")
+                       .reduce((s,r)=> s + (+r["Estoque VGV"]||0), 0);
+          } else {
+            // Sem ano filtrado: pegar o último estoque disponível (janeiro mais recente)
+            const anos = Array.from(new Set(data.map(r=>r["Ano"]).filter(x=>x!=null))).sort((a,b)=>b-a);
+            for (const ano of anos) {
+              const estoque = data.filter(r => String(r["Ano"])===String(ano) && r["Mês"]==="Janeiro")
+                                  .reduce((s,r)=> s + (+r["Estoque VGV"]||0), 0);
+              if (estoque > 0) return estoque;
+            }
+            return 0;
+          }
         }
       }
     }
