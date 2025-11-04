@@ -942,46 +942,68 @@ function updateMetrics(data) {
         (selectedFilters.produto.size===0 || selectedFilters.produto.has(r['Produto']))
     );
     
+    // Estoque para os cards Meta/Real/Estoque (lógica antiga)
     const estoqueVGV = (typeof getEstoqueVGVForFilters==='function')
         ? getEstoqueVGVForFilters(selectedAno, selectedMeses, extraFilterFn)
         : data.reduce((sum, r) => sum + (r['Estoque VGV'] || 0), 0);
     
-    const vsoMedio = estoqueVGV > 0 ? (realVGV / estoqueVGV * 100) : 0;
+    // VSO GERAL - Nova Lógica
+    let vsoGeralNumerador = realVGV;
+    let vsoGeralDenominador = 0;
+    
+    if (selectedMeses.length === 0) {
+        // SEM FILTRO: Último estoque disponível
+        vsoGeralDenominador = (typeof getEstoqueVGVForFilters==='function')
+            ? getEstoqueVGVForFilters(selectedAno, selectedMeses, extraFilterFn)
+            : data.reduce((sum, r) => sum + (r['Estoque VGV'] || 0), 0);
+    } else {
+        // COM FILTRO DE MÊS(ES): Soma dos estoques de TODOS os meses filtrados
+        const MESES = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+        const mesesOrdenados = selectedMeses.slice().sort((a,b) => MESES.indexOf(a) - MESES.indexOf(b));
+        
+        mesesOrdenados.forEach(mes => {
+            const estoqueDoMes = data.filter(r => 
+                r["Mês"] === mes && 
+                (!selectedAno || String(r["Ano"]) === String(selectedAno))
+            ).reduce((sum, r) => sum + (r['Estoque VGV'] || 0), 0);
+            vsoGeralDenominador += estoqueDoMes;
+        });
+    }
+    
+    const vsoGeral = vsoGeralDenominador > 0 ? (vsoGeralNumerador / vsoGeralDenominador * 100) : 0;
     const atingimentoMeta = metaVGV > 0 ? (realVGV / metaVGV * 100) : 0;
 
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('🔍 DEBUG ESTOQUE - LÓGICA DE CÁLCULO');
+    console.log('🔍 DEBUG VSO GERAL - NOVA LÓGICA');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('📅 Filtros Aplicados:');
     console.log('   • Meses:', selectedMeses.length > 0 ? selectedMeses.join(', ') : '❌ Nenhum');
     console.log('   • Ano:', selectedAno || '❌ Nenhum');
     console.log('');
-    console.log('⚙️ Lógica Aplicada:');
+    console.log('⚙️ Lógica VSO GERAL:');
     if (selectedMeses.length === 0) {
         console.log('   📌 SEM FILTRO DE MÊS');
-        console.log('   ➜ Buscar ÚLTIMO MÊS RECENTE com estoque disponível');
-        console.log('   ➜ Procura de Dezembro → Janeiro (último mês que tem dados)');
+        console.log('   ➜ Vendas: Soma de todas as vendas dos dados filtrados');
+        console.log('   ➜ Estoque: ÚLTIMO MÊS RECENTE com estoque disponível');
     } else if (selectedMeses.length === 1) {
         console.log('   📌 FILTRO DE 1 MÊS: ' + selectedMeses[0]);
-        console.log('   ➜ Estoque do PRÓPRIO mês filtrado');
-        console.log('   ➜ Fórmula: Estoque["' + selectedMeses[0] + '"]');
+        console.log('   ➜ Vendas: Vendas do mês ' + selectedMeses[0]);
+        console.log('   ➜ Estoque: Estoque do mês ' + selectedMeses[0]);
+        console.log('   ➜ Fórmula: Vendas[' + selectedMeses[0] + '] / Estoque[' + selectedMeses[0] + ']');
     } else {
         const MESES_ORD = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
         const mesesOrdenados = selectedMeses.slice().sort((a,b) => MESES_ORD.indexOf(a) - MESES_ORD.indexOf(b));
-        const ultimoMes = mesesOrdenados[mesesOrdenados.length - 1];
-        const idxUltimo = MESES_ORD.indexOf(ultimoMes);
-        const mesSubsequente = idxUltimo < 11 ? MESES_ORD[idxUltimo + 1] : 'Janeiro (ano seguinte)';
         console.log('   📌 FILTRO DE MÚLTIPLOS MESES: ' + mesesOrdenados.join(', '));
-        console.log('   ➜ Último mês do período: ' + ultimoMes);
-        console.log('   ➜ Estoque do MÊS SUBSEQUENTE: ' + mesSubsequente);
-        console.log('   ➜ Fórmula: Estoque["' + mesSubsequente + '"]');
+        console.log('   ➜ Vendas: SOMA de vendas de TODOS os meses do período');
+        console.log('   ➜ Estoque: SOMA de estoques de TODOS os meses do período');
+        console.log('   ➜ Fórmula: ΣVendas[' + mesesOrdenados.join('+') + '] / ΣEstoque[' + mesesOrdenados.join('+') + ']');
     }
     console.log('');
     console.log('📊 Resultados:');
-    console.log('   💰 Vendas (Real VGV): R$ ' + realVGV.toLocaleString('pt-BR', {maximumFractionDigits: 0}));
-    console.log('   📦 Estoque (VGV): R$ ' + estoqueVGV.toLocaleString('pt-BR', {maximumFractionDigits: 0}));
-    console.log('   📈 VSO Geral: ' + vsoMedio.toFixed(2) + '%');
-    console.log('   🧮 Cálculo: ' + realVGV.toFixed(0) + ' ÷ ' + estoqueVGV.toFixed(0) + ' × 100');
+    console.log('   💰 Vendas (Real VGV): R$ ' + vsoGeralNumerador.toLocaleString('pt-BR', {maximumFractionDigits: 0}));
+    console.log('   📦 Estoque Total: R$ ' + vsoGeralDenominador.toLocaleString('pt-BR', {maximumFractionDigits: 0}));
+    console.log('   📈 VSO GERAL: ' + vsoGeral.toFixed(2) + '%');
+    console.log('   🧮 Cálculo: ' + vsoGeralNumerador.toFixed(0) + ' ÷ ' + vsoGeralDenominador.toFixed(0) + ' × 100');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     document.getElementById('metricsGrid').innerHTML = `
