@@ -675,80 +675,58 @@
 <div id="badgeLoaded" style="position:fixed;top:8px;right:8px;background:#0ea5e9;color:#fff;padding:8px 12px;border-radius:8px;z-index:9999;font-family:Inter,system-ui">Atualizado automaticamente da Planilha em 2025-11-03 14:20:05</div>
 <script>
 
-
-var allData = window.allData || [];
-async function loadSheetAndRender() {
+var allData = [];
+(function() {
   try {
-    const ts = Date.now();
-    const url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSju9gP6RC3zHnt5qHlUPuqJMKCqr2TIQ0y7RIhEhGkuUZLGjzKCp6M0kYnqmkLEKJQXNEZycZgCSv6/pub?gid=0&single=true&output=csv" + "&cachebust=" + ts;
-    const res = await fetch(url, { cache: 'no-store', mode: 'cors' });
-    if (!res.ok) throw new Error("HTTP " + res.status + " " + res.statusText);
-    const text = await res.text();
-    const parsed = Papa.parse(text, {
-      header: true,
-      dynamicTyping: true,
-      skipEmptyLines: true,
-    });
-    function t(s) { return (s||"").toString().trim(); }
-    function num(x) {
-      var v = (typeof x === 'string') ? x.replace(/\./g,'').replace(',', '.') : x;
-      v = parseFloat(v);
-      return isFinite(v) ? v : 0;
-    }
-    allData = parsed.data.map(function(r) {
-      var o = {};
-      Object.keys(r).forEach(function(k) { o[t(k)] = r[k]; });
-      return {
-        "Empresa": o["Empresa"] ?? o["EMPRESA"] ?? o["empresa"] ?? "",
-        "Mês": o["Mês"] ?? o["Mes"] ?? o["MÊS"] ?? o["MES"] ?? "",
-        "Ano": num(o["Ano"] ?? o["ANO"] ?? o["ano"]),
-        "Linha de Produto": o["Linha de Produto"] ?? o["LINHA DE PRODUTO"] ?? o["Linha"] ?? "",
-        "Produto": o["Produto"] ?? o["PRODUTO"] ?? "",
-        " Meta VGV ": num(o[" Meta VGV "] ?? o["Meta VGV"] ?? o["META VGV"] ?? o["Meta_VGV"]),
-        " Real VGV ": num(o[" Real VGV "] ?? o["Real VGV"] ?? o["REAL VGV"] ?? o["Real_VGV"]),
-        "Meta Qtd": num(o["Meta Qtd"] ?? o["META QTD"] ?? o["Meta_Qtd"]),
-        "Real Qtd": num(o["Real Qtd"] ?? o["REAL QTD"] ?? o["Real_Qtd"]),
-        "Estoque VGV": num(o["Estoque VGV"] ?? o["ESTOQUE VGV"] ?? o["Estoque_VGV"]),
-        "Estoque Qtd": num(o["Estoque Qtd"] ?? o["ESTOQUE QTD"] ?? o["Estoque_Qtd"]),
-        "% VSO": num(o["% VSO"] ?? o["%VSO"] ?? o["VSO"] ?? o["% vso"] ?? 0)
-      };
-    });
-    // Badge
-    const old = document.getElementById('badgeLoaded');
-    if (old) {
-      old.textContent = `Atualizado: ${new Date(ts).toLocaleString()} — ${allData.length} registros`;
-      old.style.background = '#16a34a';
+    var csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSju9gP6RC3zHnt5qHlUPuqJMKCqr2TIQ0y7RIhEhGkuUZLGjzKCp6M0kYnqmkLEKJQXNEZycZgCSv6/pub?gid=0&single=true&output=csv";
+    var req = new XMLHttpRequest();
+    req.open('GET', csvUrl, false); // synchronous to ensure allData is ready
+    req.send(null);
+    if (req.status === 200) {
+      var parsed = Papa.parse(req.responseText, {
+        header: true,
+        dynamicTyping: true,
+        skipEmptyLines: true,
+      });
+      // Trim keys and normalize
+      function t(s) { return (s||"").toString().trim(); }
+      allData = parsed.data.map(function(r) {
+        var o = {};
+        Object.keys(r).forEach(function(k) {
+          o[t(k)] = r[k];
+        });
+        // Coerções numéricas seguras
+        function num(x) {
+          var v = (typeof x === 'string') ? x.replace(/\./g,'').replace(',', '.') : x;
+          v = parseFloat(v);
+          return isFinite(v) ? v : 0;
+        }
+        // Campos esperados pelo dashboard
+        return {
+          "Empresa": o["Empresa"] ?? o["EMPRESA"] ?? o["empresa"] ?? "",
+          "Mês": o["Mês"] ?? o["Mes"] ?? o["MÊS"] ?? o["MES"] ?? "",
+          "Ano": num(o["Ano"] ?? o["ANO"] ?? o["ano"]),
+          "Linha de Produto": o["Linha de Produto"] ?? o["LINHA DE PRODUTO"] ?? o["Linha"] ?? "",
+          "Produto": o["Produto"] ?? o["PRODUTO"] ?? "",
+          " Meta VGV ": num(o[" Meta VGV "] ?? o["Meta VGV"] ?? o["META VGV"] ?? o["Meta_VGV"]),
+          " Real VGV ": num(o[" Real VGV "] ?? o["Real VGV"] ?? o["REAL VGV"] ?? o["Real_VGV"]),
+          "Meta Qtd": num(o["Meta Qtd"] ?? o["META QTD"] ?? o["Meta_Qtd"]),
+          "Real Qtd": num(o["Real Qtd"] ?? o["REAL QTD"] ?? o["Real_Qtd"]),
+          "Estoque VGV": num(o["Estoque VGV"] ?? o["ESTOQUE VGV"] ?? o["Estoque_VGV"]),
+          "Estoque Qtd": num(o["Estoque Qtd"] ?? o["ESTOQUE QTD"] ?? o["Estoque_Qtd"]),
+          "% VSO": num(o["% VSO"] ?? o["%VSO"] ?? o["VSO"] ?? o["% vso"] ?? 0)
+        };
+      });
+      console.log("Planilha carregada:", allData.length, "linhas");
     } else {
-      const b = document.createElement('div');
-      b.id = 'badgeLoaded';
-      b.style.cssText = 'position:fixed;top:8px;right:8px;background:#16a34a;color:#fff;padding:8px 12px;border-radius:8px;z-index:9999;font-family:Inter,system-ui';
-      b.textContent = `Atualizado: ${new Date(ts).toLocaleString()} — ${allData.length} registros`;
-      document.body.appendChild(b);
-      setTimeout(()=>b.remove(), 5000);
+      console.warn("Falha ao buscar CSV", req.status, req.statusText);
     }
-    // Render
-    if (typeof initializeFilters === 'function') initializeFilters();
-    if (typeof updateDashboard === 'function') updateDashboard();
   } catch(e) {
-    console.error("Falha ao carregar a planilha:", e);
-    let b = document.getElementById('badgeLoaded');
-    if (!b) {
-      b = document.createElement('div');
-      b.id = 'badgeLoaded';
-      document.body.appendChild(b);
-    }
-    b.textContent = "Erro ao atualizar: " + e.message + ". Verifique se a planilha está 'Publicada na Web' e acessível.";
-    b.style.cssText = 'position:fixed;top:8px;right:8px;background:#dc2626;color:#fff;padding:8px 12px;border-radius:8px;z-index:9999;font-family:Inter,system-ui';
+    console.error("Erro ao carregar CSV:", e);
   }
-}
-document.addEventListener('DOMContentLoaded', function() {
-  loadSheetAndRender();
-  // Botão manual (se existir)
-  const btn = document.getElementById('btnRefreshSheet');
-  if (btn) btn.addEventListener('click', loadSheetAndRender);
-  // Auto-refresh a cada 5 minutos
-  setInterval(loadSheetAndRender, 5 * 60 * 1000);
-});
+})();
+
+
 (function(){ // estoque helpers
   function mesIndexBr(nome){
     const mapa = {"Janeiro":1,"Fevereiro":2,"Março":3,"Abril":4,"Maio":5,"Junho":6,"Julho":7,"Agosto":8,"Setembro":9,"Outubro":10,"Novembro":11,"Dezembro":12};
@@ -883,7 +861,6 @@ document.addEventListener('DOMContentLoaded', function(){
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
 <h1>📊 Análise Meta x Realizado - VSO</h1>
 <div style="display: flex; gap: 12px;">
-<button id="btnRefreshSheet" class="download-btn" title="Recarregar dados da Planilha Google">🔄 Atualizar agora</button>
 <button class="download-btn" onclick="toggleDebugPanel()" style="background: #ffc107; color: #856404;">
                     🔍 Ver Cálculos
                 </button>
@@ -1199,14 +1176,21 @@ const vsoMedio = estoqueVGV > 0 ? (realVGV / estoqueVGV * 100) : 0;
 
             // Agrupar dados por mês para cálculos trimestrais (usando dataParaVSO)
             const dadosPorMes = {};
+            console.log('=== INICIANDO AGRUPAMENTO POR MÊS ===');
             dataParaVSO.forEach(row => {
                 const mes = row.Mês;
                 if (!dadosPorMes[mes]) {
                     dadosPorMes[mes] = { realVGV: 0, estoqueVGV: 0 };
+                    console.log(`Criando novo mês: ${mes}`);
                 }
+                const estoqueAnterior = dadosPorMes[mes].estoqueVGV;
+                const realAnterior = dadosPorMes[mes].realVGV;
                 dadosPorMes[mes].realVGV += row[' Real VGV '] || 0;
                 dadosPorMes[mes].estoqueVGV += row['Estoque VGV'] || 0;
+                console.log(`${mes}: Estoque ${estoqueAnterior} + ${row['Estoque VGV'] || 0} = ${dadosPorMes[mes].estoqueVGV} | Real ${realAnterior} + ${row[' Real VGV '] || 0} = ${dadosPorMes[mes].realVGV}`);
             });
+            console.log('=== RESULTADO FINAL DO AGRUPAMENTO ===');
+            console.log(dadosPorMes);
 
             // Função auxiliar para obter dados de um mês
             function getMesData(mes) {
@@ -1227,9 +1211,8 @@ const vsoMedio = estoqueVGV > 0 ? (realVGV / estoqueVGV * 100) : 0;
             
             console.log('1º Trimestre:');
             console.log('  Janeiro - Estoque:', jan.estoqueVGV, 'Real:', jan.realVGV);
-            console.log('  Fevereiro - Real:', fev.realVGV);
-            console.log('  Março - Real:', mar.realVGV);
-            console.log('  Abril - Estoque:', abr.estoqueVGV);
+            console.log('  Fevereiro - Estoque:', fev.estoqueVGV, 'Real:', fev.realVGV);
+            console.log('  Março - Estoque:', mar.estoqueVGV, 'Real:', mar.realVGV);
             
             const estoqueTotal1T = jan.estoqueVGV + fev.estoqueVGV + mar.estoqueVGV;
             const realTotal1T = jan.realVGV + fev.realVGV + mar.realVGV;
@@ -1245,10 +1228,9 @@ const vsoMedio = estoqueVGV > 0 ? (realVGV / estoqueVGV * 100) : 0;
             const jul = getMesData('Julho');
             
             console.log('2º Trimestre:');
-            console.log('  Abril - Estoque:', abr.estoqueVGV);
-            console.log('  Maio - Real:', mai.realVGV);
-            console.log('  Junho - Real:', jun.realVGV);
-            console.log('  Julho - Estoque:', jul.estoqueVGV);
+            console.log('  Abril - Estoque:', abr.estoqueVGV, 'Real:', abr.realVGV);
+            console.log('  Maio - Estoque:', mai.estoqueVGV, 'Real:', mai.realVGV);
+            console.log('  Junho - Estoque:', jun.estoqueVGV, 'Real:', jun.realVGV);
             
             const estoqueTotal2T = abr.estoqueVGV + mai.estoqueVGV + jun.estoqueVGV;
             const realTotal2T = abr.realVGV + mai.realVGV + jun.realVGV;
@@ -1264,10 +1246,9 @@ const vsoMedio = estoqueVGV > 0 ? (realVGV / estoqueVGV * 100) : 0;
             const out = getMesData('Outubro');
             
             console.log('3º Trimestre:');
-            console.log('  Julho - Estoque:', jul.estoqueVGV);
-            console.log('  Agosto - Real:', ago.realVGV);
-            console.log('  Setembro - Real:', set.realVGV);
-            console.log('  Outubro - Estoque:', out.estoqueVGV);
+            console.log('  Julho - Estoque:', jul.estoqueVGV, 'Real:', jul.realVGV);
+            console.log('  Agosto - Estoque:', ago.estoqueVGV, 'Real:', ago.realVGV);
+            console.log('  Setembro - Estoque:', set.estoqueVGV, 'Real:', set.realVGV);
             
             const estoqueTotal3T = jul.estoqueVGV + ago.estoqueVGV + set.estoqueVGV;
             const realTotal3T = jul.realVGV + ago.realVGV + set.realVGV;
@@ -2794,36 +2775,75 @@ const vsoMedio = estoqueVGV > 0 ? (realVGV / estoqueVGV * 100) : 0;
     return arr.slice().sort((a,b)=>MESES.indexOf(a)-MESES.indexOf(b));
   }
   window.getEstoqueQtdForFilters = function(selectedAno, selectedMeses, extraFilterFn){
+    console.log('=== getEstoqueQtdForFilters chamada ===');
+    console.log('selectedAno:', selectedAno);
+    console.log('selectedMeses:', selectedMeses);
     const base = Array.isArray(window.allData) ? window.allData : [];
     const data = extraFilterFn ? base.filter(extraFilterFn) : base;
+    console.log('Total de registros após filtro:', data.length);
+    
     if (selectedMeses && selectedMeses.length>=1){
       // SOMA dos estoques de TODOS os meses selecionados
+      console.log('SOMANDO estoques Qtd de múltiplos meses');
       const ord = ordMeses(selectedMeses);
       let total = 0;
       for (const mes of ord) {
-        total += data.filter(r => (!selectedAno || String(r["Ano"])===String(selectedAno)) && r["Mês"]===mes)
+        const estoqueMes = data.filter(r => (!selectedAno || String(r["Ano"])===String(selectedAno)) && r["Mês"]===mes)
                      .reduce((s,r)=> s + (+r["Estoque Qtd"]||0), 0);
+        console.log(`  ${mes}: ${estoqueMes}`);
+        total += estoqueMes;
       }
+      console.log('Total de estoques Qtd somados:', total);
       return total;
     }
     if (selectedAno){
+      console.log('Pegando último mês Qtd do ano', selectedAno);
       const {soma} = ultimoMesComInfoSum(data, selectedAno, "Estoque Qtd");
+      console.log('Estoque Qtd do último mês:', soma);
       return soma;
     } else {
+      console.log('Pegando último mês Qtd de cada ano e somando');
       const anos = Array.from(new Set(data.map(r=>r["Ano"]).filter(x=>x!=null)));
-      return anos.reduce((acc, ano)=> acc + ultimoMesComInfoSum(data, ano, "Estoque Qtd").soma, 0);
+      const total = anos.reduce((acc, ano)=> acc + ultimoMesComInfoSum(data, ano, "Estoque Qtd").soma, 0);
+      console.log('Total de estoques Qtd (último de cada ano):', total);
+      return total;
     }
   };
   window.getEstoqueVGVForFilters = function(selectedAno, selectedMeses, extraFilterFn){
+    console.log('=== getEstoqueVGVForFilters chamada ===');
+    console.log('selectedAno:', selectedAno);
+    console.log('selectedMeses:', selectedMeses);
     const base = Array.isArray(window.allData) ? window.allData : [];
     const data = extraFilterFn ? base.filter(extraFilterFn) : base;
+    console.log('Total de registros após filtro:', data.length);
+    
     if (selectedMeses && selectedMeses.length>=1){
       // SOMA dos estoques de TODOS os meses selecionados
+      console.log('SOMANDO estoques de múltiplos meses');
       const ord = ordMeses(selectedMeses);
       let total = 0;
       for (const mes of ord) {
-        total += data.filter(r => (!selectedAno || String(r["Ano"])===String(selectedAno)) && r["Mês"]===mes)
+        const estoqueMes = data.filter(r => (!selectedAno || String(r["Ano"])===String(selectedAno)) && r["Mês"]===mes)
                      .reduce((s,r)=> s + (+r["Estoque VGV"]||0), 0);
+        console.log(`  ${mes}: ${estoqueMes}`);
+        total += estoqueMes;
+      }
+      console.log('Total de estoques somados:', total);
+      return total;
+    }
+    if (selectedAno){
+      console.log('Pegando último mês do ano', selectedAno);
+      const {soma} = ultimoMesComInfoSum(data, selectedAno, "Estoque VGV");
+      console.log('Estoque do último mês:', soma);
+      return soma;
+    } else {
+      console.log('Pegando último mês de cada ano e somando');
+      const anos = Array.from(new Set(data.map(r=>r["Ano"]).filter(x=>x!=null)));
+      const total = anos.reduce((acc, ano)=> acc + ultimoMesComInfoSum(data, ano, "Estoque VGV").soma, 0);
+      console.log('Total de estoques (último de cada ano):', total);
+      return total;
+    }
+  };
       }
       return total;
     }
