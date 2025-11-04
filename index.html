@@ -750,26 +750,12 @@ window.getEstoqueQtdForFilters = function(selectedAno, selectedMeses, extraFilte
     return 0;
   }
   function estoqueMesesQtd(data, ano, mesesSelecionados){
-    const ord = mesesSelecionados.slice().sort((a,b)=>(window.__estoqueRules.mesIndexBr(a)||99)-(window.__estoqueRules.mesIndexBr(b)||99));
-    if (ord.length===1){
-      const m = ord[0];
-      return data.filter(r => r["Ano"]==ano && r["Mês"]===m).reduce((s,r)=>s+(+r["Estoque Qtd"]||0),0);
-    } else if (ord.length>1){
-      const first=ord[0], last=ord[ord.length-1];
-      const idxLast = window.__estoqueRules.mesIndexBr(last);
-      const nextIdx = idxLast ? idxLast+1 : null;
-      const inv = {1:"Janeiro",2:"Fevereiro",3:"Março",4:"Abril",5:"Maio",6:"Junho",7:"Julho",8:"Agosto",9:"Setembro",10:"Outubro",11:"Novembro",12:"Dezembro"};
-      const nextMonth = (nextIdx && nextIdx<=12) ? inv[nextIdx] : null;
-      const somaFirst = data.filter(r => r["Ano"]==ano && r["Mês"]===first).reduce((s,r)=>s+(+r["Estoque Qtd"]||0),0);
-      let somaNext = 0;
-      if (nextMonth){
-        somaNext = data.filter(r => r["Ano"]==ano && r["Mês"]===nextMonth).reduce((s,r)=>s+(+r["Estoque Qtd"]||0),0);
-      } else {
-        somaNext = data.filter(r => r["Ano"]==ano && r["Mês"]===last).reduce((s,r)=>s+(+r["Estoque Qtd"]||0),0);
-      }
-      return (somaFirst + somaNext)/2.0;
+    // SOMA dos estoques de TODOS os meses selecionados
+    let total = 0;
+    for (const mes of mesesSelecionados) {
+      total += data.filter(r => r["Ano"]==ano && r["Mês"]===mes).reduce((s,r)=>s+(+r["Estoque Qtd"]||0),0);
     }
-    return 0;
+    return total;
   }
 
   if (selectedAno){
@@ -805,26 +791,12 @@ window.getEstoqueQtdForFilters = function(selectedAno, selectedMeses, extraFilte
     return 0;
   }
   function estoqueMeses(data, ano, mesesSelecionados){
-    const ord = mesesSelecionados.slice().sort((a,b)=>(mesIndexBr(a)||99)-(mesIndexBr(b)||99));
-    if (ord.length===1){
-      const m = ord[0];
-      return data.filter(r => r["Ano"]==ano && r["Mês"]===m).reduce((s,r)=>s+(+r["Estoque VGV"]||0),0);
-    } else if (ord.length>1){
-      const first=ord[0], last=ord[ord.length-1];
-      const idxLast = mesIndexBr(last);
-      const nextIdx = idxLast ? idxLast+1 : null;
-      const mapaInv = {1:"Janeiro",2:"Fevereiro",3:"Março",4:"Abril",5:"Maio",6:"Junho",7:"Julho",8:"Agosto",9:"Setembro",10:"Outubro",11:"Novembro",12:"Dezembro"};
-      const nextMonth = (nextIdx && nextIdx<=12) ? mapaInv[nextIdx] : null;
-      const somaFirst = data.filter(r => r["Ano"]==ano && r["Mês"]===first).reduce((s,r)=>s+(+r["Estoque VGV"]||0),0);
-      let somaNext = 0;
-      if (nextMonth){
-        somaNext = data.filter(r => r["Ano"]==ano && r["Mês"]===nextMonth).reduce((s,r)=>s+(+r["Estoque VGV"]||0),0);
-      } else {
-        somaNext = data.filter(r => r["Ano"]==ano && r["Mês"]===last).reduce((s,r)=>s+(+r["Estoque VGV"]||0),0);
-      }
-      return (somaFirst + somaNext)/2.0;
+    // SOMA dos estoques de TODOS os meses selecionados
+    let total = 0;
+    for (const mes of mesesSelecionados) {
+      total += data.filter(r => r["Ano"]==ano && r["Mês"]===mes).reduce((s,r)=>s+(+r["Estoque VGV"]||0),0);
     }
-    return 0;
+    return total;
   }
   window.__estoqueRules = { estoqueAno, estoqueMeses, mesIndexBr };
 })();
@@ -1144,6 +1116,16 @@ const estoqueVGV = (typeof getEstoqueVGVForFilters==='function')
   ? getEstoqueVGVForFilters(selectedAno, selectedMeses, extraFilterFn)
   : data.reduce((sum, r) => sum + (r['Estoque VGV'] || 0), 0);
 const vsoMedio = estoqueVGV > 0 ? (realVGV / estoqueVGV * 100) : 0;
+            
+            // Debug para verificar SOMA de estoques
+            console.log('=== DEBUG ESTOQUE (DEVE SER SOMA) ===');
+            console.log('Meses selecionados:', selectedMeses.length > 0 ? selectedMeses : 'Nenhum');
+            console.log('Ano selecionado:', selectedAno || 'Nenhum');
+            console.log('Real VGV (Vendas):', realVGV.toFixed(2));
+            console.log('Estoque VGV:', estoqueVGV.toFixed(2));
+            console.log('VSO Geral:', vsoMedio.toFixed(2) + '%');
+            console.log('====================================');
+            
             const atingimentoMeta = metaVGV > 0 ? (realVGV / metaVGV * 100) : 0;
 
             document.getElementById('metricsGrid').innerHTML = `
@@ -1785,20 +1767,11 @@ const vsoMedio = estoqueVGV > 0 ? (realVGV / estoqueVGV * 100) : 0;
         });
 
         // 2. Cálculo do Denominador (Estoque)
-        // Mês de início do trimestre (Estoque)
-        const mStart = qEstoque.start;
-        const eStart = (idx[emp][ano] && idx[emp][ano][mStart] && idx[emp][ano][mStart].estoque) || 0;
-
-        // Mês de fim do trimestre (Estoque)
-        let yEnd = ano;
-        let mEnd = qEstoque.end;
-        if (mEnd === 1) { // Caso do 4º Tri (Jan do próximo ano)
-          yEnd = ano + 1;
-        }
-        const eEnd = (idx[emp][yEnd] && idx[emp][yEnd][mEnd] && idx[emp][yEnd][mEnd].estoque) || 0;
-
-        // Fórmula: (Estoque Mês Inicial + Estoque Mês Final) / 2
-        estoqueDenom += (eStart + eEnd) / 2;
+        // SOMA dos estoques de TODOS os meses do trimestre
+        qMonths.forEach(m => {
+          const estoqueMes = (idx[emp][ano] && idx[emp][ano][m] && idx[emp][ano][m].estoque) || 0;
+          estoqueDenom += estoqueMes;
+        });
       });
     });
 
@@ -1832,16 +1805,11 @@ const vsoMedio = estoqueVGV > 0 ? (realVGV / estoqueVGV * 100) : 0;
         });
 
         // 2. Cálculo do Denominador (Estoque)
-        // Mês de início (Estoque)
-        const mStart = ESTOQUE_MONTHS.start; // Janeiro
-        const eStart = (idx[emp][ano] && idx[emp][ano][mStart] && idx[emp][ano][mStart].estoque) || 0;
-
-        // Mês de fim (Estoque)
-        const mEnd = ESTOQUE_MONTHS.end; // Outubro
-        const eEnd = (idx[emp][ano] && idx[emp][ano][mEnd] && idx[emp][ano][mEnd].estoque) || 0;
-
-        // Fórmula: (Estoque Janeiro + Estoque Outubro) / 2
-        estoqueDenom += (eStart + eEnd) / 2;
+        // SOMA dos estoques de TODOS os meses (que foram usados nas vendas)
+        validMonths.forEach(m => {
+          const estoqueMes = (idx[emp][ano] && idx[emp][ano][m] && idx[emp][ano][m].estoque) || 0;
+          estoqueDenom += estoqueMes;
+        });
       });
     });
 
@@ -2554,17 +2522,6 @@ const vsoMedio = estoqueVGV > 0 ? (realVGV / estoqueVGV * 100) : 0;
       const anos = Array.from(new Set(data.map(r=>r["Ano"]).filter(x=>x!=null)));
       const total = anos.reduce((acc, ano)=> acc + ultimoMesComInfoSum(data, ano, "Estoque VGV").soma, 0);
       return total;
-    }
-  };
-      }
-      return total;
-    }
-    if (selectedAno){
-      const {soma} = ultimoMesComInfoSum(data, selectedAno, "Estoque VGV");
-      return soma;
-    } else {
-      const anos = Array.from(new Set(data.map(r=>r["Ano"]).filter(x=>x!=null)));
-      return anos.reduce((acc, ano)=> acc + ultimoMesComInfoSum(data, ano, "Estoque VGV").soma, 0);
     }
   };
 })();
